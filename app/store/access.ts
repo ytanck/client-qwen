@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import { DEFAULT_API_HOST, DEFAULT_MODELS, StoreKey } from "../constant";
 import { getHeaders } from "../client/api";
 import { BOT_HELLO } from "./chat";
+import { DEFAULT_CONFIG } from "./config";
 
 import { getClientConfig } from "../config/client";
 
@@ -16,6 +17,7 @@ export interface AccessControlStore {
   disableGPT4: boolean;
   uid: string,
   openaiUrl: string;
+  defaultModel: string,
   updateToken: (_: string) => void;
   updateCode: (_: string) => void;
   updateOpenAiUrl: (_: string) => void;
@@ -41,6 +43,7 @@ export const useAccessStore = create<AccessControlStore>()(
       disableGPT4: false,
       uid: '\n',
       openaiUrl: DEFAULT_OPENAI_URL,
+      defaultModel: "",
 
       enabledAccessControl() {
         get().fetch();
@@ -75,6 +78,13 @@ export const useAccessStore = create<AccessControlStore>()(
           },
         })
           .then((res) => res.json())
+          .then((res) => {
+            // Set default model from env request
+            let defaultModel = res.defaultModel ?? "";
+            DEFAULT_CONFIG.modelConfig.model =
+              defaultModel !== "" ? defaultModel : "qwen-turbo";
+            return res;
+          })
           .then((res: DangerConfig) => {
             console.log("[Config] got config from server", res);
             set(() => ({ ...res }));

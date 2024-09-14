@@ -36,6 +36,8 @@ export const getServerSideConfig = () => {
       "[Server Config] you are importing a nodejs-only module outside of nodejs",
     );
   }
+  let defaultModel = process.env.DEFAULT_MODEL ?? "";
+  
 
   return {
     apiKey: process.env.OPENAI_API_KEY,
@@ -48,5 +50,7 @@ export const getServerSideConfig = () => {
     hideUserApiKey: !!process.env.HIDE_USER_API_KEY,
     disableGPT4: !!process.env.DISABLE_GPT4,
     hideBalanceQuery: !!process.env.HIDE_BALANCE_QUERY,
+    provider:process.env.PROVIDER,
+    defaultModel,
   };
 };

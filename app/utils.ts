@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { showToast } from "./components/ui-lib";
 import Locale from "./locales";
+import { RequestMessage } from "./client/api";
 
 export function trimTopic(topic: string) {
   return topic.replace(/[，。！？”“"、,.!?]*$/, "");
@@ -172,4 +173,15 @@ export function autoGrowTextArea(dom: HTMLTextAreaElement) {
 
 export function getCSSVar(varName: string) {
   return getComputedStyle(document.body).getPropertyValue(varName).trim();
+}
+export function getMessageTextContent(message: RequestMessage) {
+  if (typeof message.content === "string") {
+    return message.content;
+  }
+  for (const c of message.content) {
+    if (c.type === "text") {
+      return c.text ?? "";
+    }
+  }
+  return "";
 }

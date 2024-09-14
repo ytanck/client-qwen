@@ -501,7 +501,7 @@ export const useChatStore = create<ChatStore>()(
           api.llm.chat({
             messages: topicMessages,
             config: {
-              model: "qwen-turbo",
+              model: session.mask.modelConfig.model,
             },
             onFinish(message) {
               get().updateCurrentSession(
@@ -555,7 +555,7 @@ export const useChatStore = create<ChatStore>()(
                 date: "",
               }),
             ),
-            config: { ...modelConfig, stream: true, model: "qwen-turbo" },
+            config: { ...modelConfig, stream: true },
             onUpdate(message) {
               session.memoryPrompt = message;
             },

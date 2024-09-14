@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { NextApiRequest } from 'next'
 import { getServerSideConfig } from "../../config/server";
-// import { DEFAULT_WATER_MASK } from '../../constant'
 const serverConfig = getServerSideConfig();
 
 // Danger! Don not write any secret value here!
@@ -11,6 +10,7 @@ const DANGER_CONFIG = {
   hideUserApiKey: serverConfig.hideUserApiKey,
   disableGPT4: serverConfig.disableGPT4,
   hideBalanceQuery: serverConfig.hideBalanceQuery,
+  defaultModel: serverConfig.defaultModel,
 };
 
 declare global {

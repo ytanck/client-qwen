@@ -9,6 +9,7 @@ export const FETCH_TAG_URL = `https://api.github.com/repos/${OWNER}/${REPO}/tags
 export const RUNTIME_CONFIG_DOM = "danger-runtime-config";
 export const DEFAULT_API_HOST = "https://chatgpt1.nextweb.fun/api/proxy";
 export const DEFAULT_WATER_MASK = "内容由人工智能生成";
+export const ALIBABA_BASE_URL = "https://dashscope.aliyuncs.com/api/";
 export enum Path {
   Home = "/",
   Chat = "/chat",
@@ -56,6 +57,10 @@ export const OpenaiPath = {
   ListModelPath: "v1/models",
 };
 
+export const Alibaba = {
+  ExampleEndpoint: ALIBABA_BASE_URL,
+  ChatPath: "v1/services/aigc/text-generation/generation",
+};
 export const DEFAULT_INPUT_TEMPLATE = `{{input}}`; // input / time / model / lang
 export const DEFAULT_SYSTEM_TEMPLATE = ``;
 
@@ -65,7 +70,11 @@ export const DEFAULT_MODELS = [
     available: true,
   },
   {
-    name: "qwen-plus",
+    name: "chatglm3-6b",
+    available: true,
+  },
+  {
+    name: "moonshot-v1-8k",
     available: true,
   },
   // {

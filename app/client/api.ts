@@ -1,7 +1,9 @@
 import { getClientConfig } from "../config/client";
+import { getServerSideConfig } from "../config/server";
 import { ACCESS_CODE_PREFIX } from "../constant";
 import { ChatMessage, ModelType, useAccessStore } from "../store";
 import { ChatGPTApi } from "./platforms/openai";
+import { QwenApi } from "./platforms/alibaba";
 
 export const ROLES = ["system", "user", "assistant"] as const;
 export type MessageRole = (typeof ROLES)[number];
@@ -9,9 +11,16 @@ export type MessageRole = (typeof ROLES)[number];
 export const Models = ["qwen-turbo", "qwen-plus"] as const;
 export type ChatModel = ModelType;
 
+export interface MultimodalContent {
+  type: "text" | "image_url";
+  text?: string;
+  image_url?: {
+    url: string;
+  };
+}
 export interface RequestMessage {
   role: MessageRole;
-  content: string;
+  content: string | MultimodalContent[];
 }
 
 export interface LLMConfig {
@@ -69,12 +78,21 @@ interface ChatProvider {
   chat: () => void;
   usage: () => void;
 }
+const { provider } = getServerSideConfig();
 
 export class ClientApi {
   public llm: LLMApi;
 
-  constructor() {
-    this.llm = new ChatGPTApi();
+  constructor(provider: string) {
+    console.log(1233, provider,process.env.PROVIDER);
+
+    switch (provider) {
+      case "Alibaba":
+        this.llm = new QwenApi();
+        break;
+      default:
+        this.llm = new ChatGPTApi();
+    }
   }
 
   config() {}
@@ -123,7 +141,7 @@ export class ClientApi {
   }
 }
 
-export const api = new ClientApi();
+export const api = new ClientApi(provider);
 
 export function getHeaders() {
   const accessStore = useAccessStore.getState();

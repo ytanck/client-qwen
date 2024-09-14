@@ -1,12 +1,19 @@
+"use client";
 import {
-  DEFAULT_API_HOST,
-  DEFAULT_MODELS,
-  OpenaiPath,
+  ApiPath,
+  Alibaba,
+  ALIBABA_BASE_URL,
   REQUEST_TIMEOUT_MS,
 } from "@/app/constant";
 import { useAccessStore, useAppConfig, useChatStore } from "@/app/store";
 
-import { ChatOptions, getHeaders, LLMApi, LLMModel, LLMUsage } from "../api";
+import {
+  ChatOptions,
+  getHeaders,
+  LLMApi,
+  LLMModel,
+  MultimodalContent,
+} from "../api";
 import Locale from "../../locales";
 import {
   EventStreamContentType,
@@ -14,6 +21,7 @@ import {
 } from "@fortaine/fetch-event-source";
 import { prettyObject } from "@/app/utils/format";
 import { getClientConfig } from "@/app/config/client";
+import { getMessageTextContent } from "@/app/utils";
 
 export interface OpenAIListModelResponse {
   object: string;
@@ -24,35 +32,61 @@ export interface OpenAIListModelResponse {
   }>;
 }
 
-export class ChatGPTApi implements LLMApi {
-  private disableListModels = true;
+interface RequestInput {
+  messages: {
+    role: "system" | "user" | "assistant";
+    content: string | MultimodalContent[];
+  }[];
+}
+interface RequestParam {
+  result_format: string;
+  incremental_output?: boolean;
+  temperature: number;
+  repetition_penalty?: number;
+  top_p: number;
+  max_tokens?: number;
+}
+interface RequestPayload {
+  model: string;
+  input: RequestInput;
+  parameters: RequestParam;
+}
 
+export class QwenApi implements LLMApi {
   path(path: string): string {
-    let openaiUrl = useAccessStore.getState().openaiUrl;
-    const apiPath = "/api/openai";
+    const accessStore = useAccessStore.getState();
 
-    if (openaiUrl.length === 0) {
+    let baseUrl = "";
+
+    // if (accessStore.useCustomConfig) {
+    //   baseUrl = accessStore.alibabaUrl;
+    // }
+
+    if (baseUrl.length === 0) {
       const isApp = !!getClientConfig()?.isApp;
-      openaiUrl = isApp ? DEFAULT_API_HOST : apiPath;
+      baseUrl = isApp ? ALIBABA_BASE_URL : "/api/alibaba";
     }
-    if (openaiUrl.endsWith("/")) {
-      openaiUrl = openaiUrl.slice(0, openaiUrl.length - 1);
+
+    if (baseUrl.endsWith("/")) {
+      baseUrl = baseUrl.slice(0, baseUrl.length - 1);
     }
-    if (!openaiUrl.startsWith("http") && !openaiUrl.startsWith(apiPath)) {
-      openaiUrl = "https://" + openaiUrl;
+    if (!baseUrl.startsWith("http") && !baseUrl.startsWith("/api/alibaba")) {
+      baseUrl = "https://" + baseUrl;
     }
-    return [openaiUrl, path].join("/");
+
+    console.log("[Proxy Endpoint] ", baseUrl, path);
+
+    return [baseUrl, path].join("/");
   }
 
   extractMessage(res: any) {
-    return res.choices?.at(0)?.message?.content ?? "";
+    return res?.output?.choices?.at(0)?.message?.content ?? "";
   }
 
   async chat(options: ChatOptions) {
-    
     const messages = options.messages.map((v) => ({
       role: v.role,
-      content: v.content,
+      content: getMessageTextContent(v),
     }));
 
     const modelConfig = {
@@ -62,33 +96,35 @@ export class ChatGPTApi implements LLMApi {
         model: options.config.model,
       },
     };
-    console.log(modelConfig,'modelConfig');
-    const requestPayload = {
-      messages,
-      stream: true,
-      max_tokens: modelConfig.max_tokens,
-      model: modelConfig.model,
-      // temperature: modelConfig.temperature,
-      // presence_penalty: modelConfig.presence_penalty,
-      // frequency_penalty: modelConfig.frequency_penalty,
-      // top_p: modelConfig.top_p,
-    };
-
-    console.log("[Request] openai payload: ", requestPayload);
 
     const shouldStream = !!options.config.stream;
+    const requestPayload: RequestPayload = {
+      model: modelConfig.model,
+      input: {
+        messages,
+      },
+      parameters: {
+        result_format: "message",
+        incremental_output: shouldStream,
+        temperature: modelConfig.temperature,
+        // max_tokens: modelConfig.max_tokens,
+        top_p: modelConfig.top_p === 1 ? 0.99 : modelConfig.top_p, // qwen top_p is should be < 1
+      },
+    };
+
     const controller = new AbortController();
     options.onController?.(controller);
 
     try {
-      const chatPath = this.path(OpenaiPath.ChatPath);
-      //  /api/openai/v1/chat/completions 
-      
+      const chatPath = this.path(Alibaba.ChatPath);
       const chatPayload = {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: {
+          ...getHeaders(),
+          "X-DashScope-SSE": shouldStream ? "enable" : "disable",
+        },
       };
 
       // make a fetch request
@@ -99,23 +135,50 @@ export class ChatGPTApi implements LLMApi {
 
       if (shouldStream) {
         let responseText = "";
+        let remainText = "";
         let finished = false;
+
+        // animate response to make it looks smooth
+        function animateResponseText() {
+          if (finished || controller.signal.aborted) {
+            responseText += remainText;
+            console.log("[Response Animation] finished");
+            if (responseText?.length === 0) {
+              options.onError?.(new Error("empty response from server"));
+            }
+            return;
+          }
+
+          if (remainText.length > 0) {
+            const fetchCount = Math.max(1, Math.round(remainText.length / 60));
+            const fetchText = remainText.slice(0, fetchCount);
+            responseText += fetchText;
+            remainText = remainText.slice(fetchCount);
+            options.onUpdate?.(responseText, fetchText);
+          }
+
+          requestAnimationFrame(animateResponseText);
+        }
+
+        // start animaion
+        animateResponseText();
 
         const finish = () => {
           if (!finished) {
-            options.onFinish(responseText);
             finished = true;
+            options.onFinish(responseText + remainText);
           }
         };
 
         controller.signal.onabort = finish;
+
         fetchEventSource(chatPath, {
           ...chatPayload,
           async onopen(res) {
             clearTimeout(requestTimeoutId);
             const contentType = res.headers.get("content-type");
             console.log(
-              "[OpenAI] request response content type: ",
+              "[Alibaba] request response content type: ",
               contentType,
             );
 
@@ -158,10 +221,12 @@ export class ChatGPTApi implements LLMApi {
             const text = msg.data;
             try {
               const json = JSON.parse(text);
-              const delta = json.choices[0].delta.content;
+              const choices = json.output.choices as Array<{
+                message: { content: string };
+              }>;
+              const delta = choices[0]?.message?.content;
               if (delta) {
-                responseText += delta;
-                options.onUpdate?.(responseText, delta);
+                remainText += delta;
               }
             } catch (e) {
               console.error("[Request] parse error", text, msg);
@@ -190,95 +255,14 @@ export class ChatGPTApi implements LLMApi {
     }
   }
   async usage() {
-    const formatDate = (d: Date) =>
-      `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d
-        .getDate()
-        .toString()
-        .padStart(2, "0")}`;
-    const ONE_DAY = 1 * 24 * 60 * 60 * 1000;
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startDate = formatDate(startOfMonth);
-    const endDate = formatDate(new Date(Date.now() + ONE_DAY));
-
-    const [used, subs] = await Promise.all([
-      fetch(
-        this.path(
-          `${OpenaiPath.UsagePath}?start_date=${startDate}&end_date=${endDate}`,
-        ),
-        {
-          method: "GET",
-          headers: getHeaders(),
-        },
-      ),
-      fetch(this.path(OpenaiPath.SubsPath), {
-        method: "GET",
-        headers: getHeaders(),
-      }),
-    ]);
-
-    if (used.status === 401) {
-      throw new Error(Locale.Error.Unauthorized);
-    }
-
-    if (!used.ok || !subs.ok) {
-      throw new Error("Failed to query usage from openai");
-    }
-
-    const response = (await used.json()) as {
-      total_usage?: number;
-      error?: {
-        type: string;
-        message: string;
-      };
-    };
-
-    const total = (await subs.json()) as {
-      hard_limit_usd?: number;
-    };
-
-    if (response.error && response.error.type) {
-      throw Error(response.error.message);
-    }
-
-    if (response.total_usage) {
-      response.total_usage = Math.round(response.total_usage) / 100;
-    }
-
-    if (total.hard_limit_usd) {
-      total.hard_limit_usd = Math.round(total.hard_limit_usd * 100) / 100;
-    }
-
     return {
-      used: response.total_usage,
-      total: total.hard_limit_usd,
-    } as LLMUsage;
+      used: 0,
+      total: 0,
+    };
   }
 
   async models(): Promise<LLMModel[]> {
-    // if (this.disableListModels) {
-    //   return DEFAULT_MODELS.slice();
-    // }
-    console.log('mm', this.path(OpenaiPath.ListModelPath))
-    const res = await fetch(this.path(OpenaiPath.ListModelPath), {
-      method: "GET",
-      headers: {
-        ...getHeaders(),
-      },
-    });
-
-    const resJson = (await res.json()) as OpenAIListModelResponse;
-    const chatModels = resJson.data?.filter((m) => m.id.startsWith("gpt-"));
-    console.log("[Models]", chatModels);
-
-    if (!chatModels) {
-      return [];
-    }
-
-    return chatModels.map((m) => ({
-      name: m.id,
-      available: true,
-    }));
+    return [];
   }
 }
-export { OpenaiPath };
+export { Alibaba };
