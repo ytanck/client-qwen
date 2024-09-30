@@ -1,9 +1,10 @@
 import { getClientConfig } from "../config/client";
 import { getServerSideConfig } from "../config/server";
 import { ACCESS_CODE_PREFIX } from "../constant";
-import { ChatMessage, ModelType, useAccessStore } from "../store";
+import { ChatMessage, ModelType, useAccessStore,useAppConfig } from "../store";
 import { ChatGPTApi } from "./platforms/openai";
 import { QwenApi } from "./platforms/alibaba";
+// import { DEFAULT_CONFIG } from "../store/config";
 
 export const ROLES = ["system", "user", "assistant"] as const;
 export type MessageRole = (typeof ROLES)[number];
@@ -84,8 +85,6 @@ export class ClientApi {
   public llm: LLMApi;
 
   constructor(provider: string) {
-    console.log(1233, provider,process.env.PROVIDER);
-
     switch (provider) {
       case "Alibaba":
         this.llm = new QwenApi();

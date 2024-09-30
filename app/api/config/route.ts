@@ -11,6 +11,7 @@ const DANGER_CONFIG = {
   disableGPT4: serverConfig.disableGPT4,
   hideBalanceQuery: serverConfig.hideBalanceQuery,
   defaultModel: serverConfig.defaultModel,
+  provider: serverConfig.provider,
 };
 
 declare global {

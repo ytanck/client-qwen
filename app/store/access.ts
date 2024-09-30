@@ -81,8 +81,11 @@ export const useAccessStore = create<AccessControlStore>()(
           .then((res) => {
             // Set default model from env request
             let defaultModel = res.defaultModel ?? "";
+            let provider = res.provider ?? "";
             DEFAULT_CONFIG.modelConfig.model =
               defaultModel !== "" ? defaultModel : "qwen-turbo";
+            DEFAULT_CONFIG.provider =
+            provider !== "" ? provider : "Alibaba";
             return res;
           })
           .then((res: DangerConfig) => {
