@@ -53,6 +53,7 @@ import {
   selectOrCopy,
   autoGrowTextArea,
   useMobileScreen,
+  getMessageTextContent
 } from "../utils";
 
 import dynamic from "next/dynamic";
@@ -771,9 +772,9 @@ function _Chat() {
   };
   const onRightClick = (e: any, message: ChatMessage) => {
     // copy to clipboard
-    if (selectOrCopy(e.currentTarget, message.content)) {
+    if (selectOrCopy(e.currentTarget, getMessageTextContent(message))) {
       if (userInput.length === 0) {
-        setUserInput(message.content);
+        setUserInput(getMessageTextContent(message));
       }
 
       e.preventDefault();
@@ -841,7 +842,7 @@ function _Chat() {
 
     // resend the message
     setIsLoading(true);
-    chatStore.onUserInput(userMessage.content).then(() => setIsLoading(false));
+    chatStore.onUserInput(getMessageTextContent(userMessage)).then(() => setIsLoading(false));
     inputRef.current?.focus();
   };
 
@@ -1119,7 +1120,7 @@ function _Chat() {
                           onClick={async () => {
                             const newMessage = await showPrompt(
                               Locale.Chat.Actions.Edit,
-                              message.content,
+                              getMessageTextContent(message),
                               10,
                             );
                             chatStore.updateCurrentSession((session) => {
@@ -1171,7 +1172,7 @@ function _Chat() {
                               <ChatAction
                                 text={Locale.Chat.Actions.Copy}
                                 icon={<CopyIcon />}
-                                onClick={() => copyToClipboard(message.content)}
+                                onClick={() => copyToClipboard(getMessageTextContent(message))}
                               />
                             </>
                           )}
@@ -1186,7 +1187,7 @@ function _Chat() {
                   )}
                   <div className={styles["chat-message-item"]}>
                     <Markdown
-                      content={message.content}
+                      content={getMessageTextContent(message)}
                       loading={
                         (message.preview || message.streaming) &&
                         message.content.length === 0 &&
@@ -1195,7 +1196,7 @@ function _Chat() {
                       onContextMenu={(e) => onRightClick(e, message)}
                       onDoubleClickCapture={() => {
                         if (!isMobileScreen) return;
-                        setUserInput(message.content);
+                        setUserInput(getMessageTextContent(message));
                       }}
                       fontSize={fontSize}
                       parentRef={scrollRef}

@@ -1,6 +1,5 @@
 "use client";
 import {
-  ApiPath,
   Alibaba,
   ALIBABA_BASE_URL,
   REQUEST_TIMEOUT_MS,

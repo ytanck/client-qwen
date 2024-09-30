@@ -33,6 +33,7 @@ import { api } from "../client/api";
 import { prettyObject } from "../utils/format";
 import { EXPORT_MESSAGE_CLASS_NAME } from "../constant";
 import { getClientConfig } from "../config/client";
+import { getMessageTextContent } from "../utils";
 
 const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
   loading: () => <LoadingIcon />,
@@ -270,7 +271,7 @@ export function RenderExport(props: {
           id={`${m.role}:${i}`}
           className={EXPORT_MESSAGE_CLASS_NAME}
         >
-          <Markdown content={m.content} defaultShow />
+          <Markdown content={getMessageTextContent(m)} defaultShow />
         </div>
       ))}
     </div>
@@ -517,7 +518,7 @@ export function ImagePreviewer(props: {
 
               <div className={styles["body"]}>
                 <Markdown
-                  content={m.content}
+                  content={getMessageTextContent(m)}
                   fontSize={config.fontSize}
                   defaultShow
                 />
@@ -540,7 +541,7 @@ export function MarkdownPreviewer(props: {
       .map((m) => {
         return m.role === "user"
           ? `## ${Locale.Export.MessageFromYou}:\n${m.content}`
-          : `## ${Locale.Export.MessageFromChatGPT}:\n${m.content.trim()}`;
+          : `## ${Locale.Export.MessageFromChatGPT}:\n${getMessageTextContent(m).trim()}`;
       })
       .join("\n\n");
 
