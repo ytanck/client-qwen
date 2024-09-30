@@ -87,14 +87,15 @@ export class ClientApi {
   constructor(provider: string) {
     // TODO:
     switch (provider) {
+      case "OpenAI":
+        this.llm = new ChatGPTApi();
       case "Alibaba":
         this.llm = new QwenApi();
-        console.log(11, provider);
-
+        console.log('provider===>a', provider);
         break;
       default:
-        console.log(22, provider);
-        this.llm = new ChatGPTApi();
+        console.log('provider===>d', provider);
+        this.llm = new QwenApi();//bug：浏览器客户端都是默认走这里
     }
   }
 
